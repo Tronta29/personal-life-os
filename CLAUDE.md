@@ -31,9 +31,10 @@ SW yalnızca production'da kayıt olur. PWA kurulumu/offline testi için: `npm r
 - `npm run dev` · `npm run build` · `npx tsc --noEmit`
 - `npm run db:push` (şema) · `npm run db:seed` (veri) · `npm run db:studio` (görsel)
 
-## Deploy (Vercel)
+## Deploy (Vercel + GitHub otomatik)
 - Canlı: **https://personal-life-os-ashen.vercel.app** · proje: `dervist99-1459s-projects/personal-life-os`
-- CLI ile deploy (Git'e bağlı değil): `npx vercel --prod`
-- Production env değişkenleri Vercel'de ekli (DATABASE_URL, DIRECT_URL, AUTH_SECRET, APP_PASSWORD, GEMINI_API_KEY, CRON_SECRET). Toplu güncelleme: `node scripts/push-env.mjs` (önce `npx vercel link`).
+- GitHub: **https://github.com/Tronta29/personal-life-os** (`main` dalı). Vercel repoya bağlı → **`git push origin main` = otomatik production deploy**.
+- Manuel deploy (gerekirse): `npx vercel --prod`.
+- Production env değişkenleri Vercel'de ekli (DATABASE_URL, DIRECT_URL, AUTH_SECRET, APP_PASSWORD, GEMINI_API_KEY, CRON_SECRET). Toplu güncelleme: `node scripts/push-env.mjs`. **Önemli:** `.env.local`'a yeni değişken eklersen Vercel'e de eklemen gerekir (git'e gitmez).
 - Cron'lar `vercel.json` ile production'da aktif; Vercel `Authorization: Bearer CRON_SECRET` gönderir.
-- Şema değişirse: `npm run db:push` (Neon'a) sonra yeniden deploy. Otomatik git-deploy için repoyu GitHub'a bağlamak gerekir (şu an CLI deploy).
+- Şema değişirse: `npm run db:push` (Neon'a) → commit → `git push` (otomatik deploy).
