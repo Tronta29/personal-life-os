@@ -6,7 +6,16 @@ import { ProgressBar } from "@/components/shared/ProgressBar";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatTrDate, getWeekStart, toDateKey } from "@/lib/utils";
 import { PRIORITY_ORDER, TASK_PRIORITIES, type TaskPriority } from "@/types";
-import { ListChecks, CheckSquare, ChevronRight } from "lucide-react";
+import {
+  ListChecks,
+  CheckSquare,
+  ChevronRight,
+  Target,
+  Flame,
+  CreditCard,
+  Package,
+  AlertTriangle,
+} from "lucide-react";
 import { AICommand } from "@/components/ai/AICommand";
 import { WeeklyScoreWidget } from "@/components/ai/WeeklyScoreWidget";
 
@@ -87,6 +96,43 @@ export default async function DashboardPage() {
       }
     : null;
 
+  // Hedefler (aktif, ilk 3) + en yüksek streak'ler (ilk 3)
+  const [activeGoals, topHabits, ccAgg, subs] = await Promise.all([
+    prisma.goal.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { created_at: "desc" },
+      take: 3,
+    }),
+    prisma.habit.findMany({
+      where: { is_active: true },
+      orderBy: { current_streak: "desc" },
+      take: 3,
+    }),
+    prisma.financeTransaction.aggregate({
+      where: {
+        type: "EXPENSE",
+        payment_method: "CREDIT_CARD",
+        transaction_date: { gte: monthStart, lt: monthEnd },
+      },
+      _sum: { amount: true },
+    }),
+    prisma.subscription.findMany({ where: { is_active: true } }),
+  ]);
+
+  const creditCardTotal = Number(ccAgg._sum.amount ?? 0);
+  const subscriptionMonthly = subs.reduce(
+    (sum, s) => sum + (s.period === "YEARLY" ? s.amount / 12 : s.amount),
+    0
+  );
+  const now3 = new Date();
+  now3.setHours(0, 0, 0, 0);
+  const in3days = new Date(now3);
+  in3days.setDate(in3days.getDate() + 3);
+  const renewingSoon = subs.filter((s) => {
+    const d = new Date(s.next_billing_date);
+    return d >= now3 && d <= in3days;
+  });
+
   return (
     <div className="space-y-5">
       <div>
@@ -100,6 +146,122 @@ export default async function DashboardPage() {
       </div>
 
       <AICommand />
+
+      {/* Yenilenecek abonelik uyarısı */}
+      {renewingSoon.length > 0 && (
+        <Card className="border-warning/50 bg-warning/10">
+          <CardContent className="flex items-start gap-2 p-3 text-sm">
+            <AlertTriangle className="size-5 shrink-0 text-warning" />
+            <div>
+              <p className="font-medium">3 gün içinde yenilenecek abonelikler</p>
+              {renewingSoon.map((s) => (
+                <p key={s.id} className="text-muted-foreground">
+                  {s.name} — {new Date(s.next_billing_date).toLocaleDateString("tr-TR")} ·{" "}
+                  {formatCurrency(s.amount, s.currency)}
+                </p>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Hedefler + Streak'ler */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Target className="size-5" /> Aktif Hedefler
+            </CardTitle>
+            <Link href="/goals">
+              <Button variant="ghost" size="sm">
+                Tümü <ChevronRight className="size-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {activeGoals.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aktif hedef yok.</p>
+            ) : (
+              <ul className="space-y-3">
+                {activeGoals.map((g) => {
+                  const pct =
+                    g.type === "NUMERIC" && g.target_value
+                      ? Math.min(100, (g.current_value / g.target_value) * 100)
+                      : 0;
+                  return (
+                    <li key={g.id}>
+                      <div className="mb-1 flex justify-between text-sm">
+                        <span className="min-w-0 truncate">{g.title}</span>
+                        {g.type === "NUMERIC" && g.target_value ? (
+                          <span className="text-muted-foreground">%{pct.toFixed(0)}</span>
+                        ) : null}
+                      </div>
+                      {g.type === "NUMERIC" && g.target_value ? (
+                        <ProgressBar value={pct} />
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {g.type === "DATE" && g.target_date
+                            ? new Date(g.target_date).toLocaleDateString("tr-TR")
+                            : "Devam ediyor"}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Flame className="size-5" /> En Yüksek Seriler
+            </CardTitle>
+            <Link href="/habits">
+              <Button variant="ghost" size="sm">
+                Tümü <ChevronRight className="size-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {topHabits.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Alışkanlık yok.</p>
+            ) : (
+              <ul className="space-y-2">
+                {topHabits.map((h) => (
+                  <li key={h.id} className="flex items-center justify-between text-sm">
+                    <span className="min-w-0 truncate">{h.title}</span>
+                    <span className="shrink-0 font-medium text-orange-500">
+                      🔥 {h.current_streak}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Kredi kartı + abonelik maliyeti */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card>
+          <CardContent className="p-4">
+            <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CreditCard className="size-4" /> Bu ay kredi kartı
+            </div>
+            <p className="text-lg font-bold">{formatCurrency(creditCardTotal)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Package className="size-4" /> Aylık abonelik
+            </div>
+            <p className="text-lg font-bold">{formatCurrency(subscriptionMonthly)}</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Rutin ilerlemesi */}
       <Card>

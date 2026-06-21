@@ -28,9 +28,11 @@ export async function GET(req: NextRequest) {
   const type = sp.get("type");
   const projectId = sp.get("project_id");
   const categoryId = sp.get("category_id");
+  const paymentMethod = sp.get("payment_method");
   if (type) where.type = type as Prisma.FinanceTransactionWhereInput["type"];
   if (projectId) where.project_id = projectId;
   if (categoryId) where.category_id = categoryId;
+  if (paymentMethod) where.payment_method = paymentMethod;
 
   const data = await prisma.financeTransaction.findMany({
     where,
@@ -64,6 +66,7 @@ export async function POST(req: NextRequest) {
       description: body.description?.trim() || null,
       client_name: body.client_name?.trim() || null,
       is_paid: body.is_paid ?? true,
+      payment_method: body.payment_method || "CASH",
       category_id: body.category_id || null,
       project_id: body.project_id || null,
       transaction_date: body.transaction_date
@@ -90,6 +93,7 @@ export async function PATCH(req: NextRequest) {
 
   const data: Record<string, unknown> = {};
   if ("is_paid" in body) data.is_paid = body.is_paid;
+  if ("payment_method" in body) data.payment_method = body.payment_method;
   if ("description" in body) data.description = body.description;
   if ("amount" in body) data.amount = Number(body.amount);
   if ("category_id" in body) data.category_id = body.category_id || null;

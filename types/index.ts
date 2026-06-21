@@ -55,3 +55,37 @@ export const PRIORITY_ORDER: Record<TaskPriority, number> = {
   MEDIUM: 2,
   LOW: 3,
 };
+
+// ===== Hedefler =====
+export type GoalType = "NUMERIC" | "BOOLEAN" | "DATE";
+export type GoalStatus = "ACTIVE" | "COMPLETED" | "CANCELLED";
+
+export const GOAL_TYPES: { value: GoalType; label: string }[] = [
+  { value: "NUMERIC", label: "Sayısal (hedef değer)" },
+  { value: "BOOLEAN", label: "Evet / Hayır" },
+  { value: "DATE", label: "Tarihe kadar" },
+];
+
+export const GOAL_STATUSES: { value: GoalStatus; label: string }[] = [
+  { value: "ACTIVE", label: "Aktif" },
+  { value: "COMPLETED", label: "Tamamlandı" },
+  { value: "CANCELLED", label: "İptal" },
+];
+
+// ===== Ödeme yöntemi =====
+export type PaymentMethod = "CASH" | "CREDIT_CARD" | "DEBIT_CARD" | "TRANSFER";
+
+export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: "CASH", label: "Nakit" },
+  { value: "CREDIT_CARD", label: "Kredi Kartı" },
+  { value: "DEBIT_CARD", label: "Banka Kartı" },
+  { value: "TRANSFER", label: "Havale/EFT" },
+];
+
+// ===== Abonelik / Taksit =====
+export type SubscriptionPeriod = "MONTHLY" | "YEARLY";
+
+export const SUBSCRIPTION_PERIODS: { value: SubscriptionPeriod; label: string }[] = [
+  { value: "MONTHLY", label: "Aylık" },
+  { value: "YEARLY", label: "Yıllık" },
+];

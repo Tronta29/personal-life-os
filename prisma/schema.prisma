@@ -79,6 +79,7 @@ model Project {
   tasks        Task[]
   transactions FinanceTransaction[]
   notes        Note[]
+  goals        Goal[]
 
   @@map("projects")
 }
@@ -137,6 +138,7 @@ model FinanceTransaction {
   description      String?
   client_name      String?          @db.VarChar(100)
   is_paid          Boolean          @default(true)
+  payment_method   String           @default("CASH") @db.VarChar(20)
   transaction_date DateTime         @default(now()) @db.Date
   created_at       DateTime         @default(now())
   project          Project?         @relation(fields: [project_id], references: [id], onDelete: SetNull)
@@ -170,4 +172,79 @@ model WeeklyScore {
   created_at         DateTime @default(now())
 
   @@map("weekly_scores")
+}
+
+// ===== Hedefler =====
+model Goal {
+  id            String    @id @default(uuid()) @db.Uuid
+  title         String    @db.VarChar(255)
+  description   String?
+  type          String    @default("NUMERIC") @db.VarChar(20) // NUMERIC, BOOLEAN, DATE
+  status        String    @default("ACTIVE") @db.VarChar(20) // ACTIVE, COMPLETED, CANCELLED
+  target_value  Float?
+  current_value Float     @default(0)
+  target_date   DateTime?
+  project_id    String?   @db.Uuid
+  project       Project?  @relation(fields: [project_id], references: [id], onDelete: SetNull)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@map("goals")
+}
+
+// ===== Alışkanlıklar =====
+model Habit {
+  id                  String     @id @default(uuid()) @db.Uuid
+  title               String     @db.VarChar(255)
+  description         String?
+  current_streak      Int        @default(0)
+  longest_streak      Int        @default(0)
+  last_completed_date DateTime?  @db.Date
+  is_active           Boolean    @default(true)
+  created_at          DateTime   @default(now())
+  logs                HabitLog[]
+
+  @@map("habits")
+}
+
+model HabitLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  habit_id       String   @db.Uuid
+  habit          Habit    @relation(fields: [habit_id], references: [id], onDelete: Cascade)
+  completed_date DateTime @db.Date
+  created_at     DateTime @default(now())
+
+  @@unique([habit_id, completed_date])
+  @@map("habit_logs")
+}
+
+// ===== Abonelikler =====
+model Subscription {
+  id                String   @id @default(uuid()) @db.Uuid
+  name              String   @db.VarChar(255)
+  amount            Float
+  currency          String   @default("TRY") @db.VarChar(10)
+  period            String   @default("MONTHLY") @db.VarChar(20) // MONTHLY, YEARLY
+  next_billing_date DateTime @db.Date
+  auto_add_expense  Boolean  @default(true)
+  is_active         Boolean  @default(true)
+  category_id       String?  @db.Uuid
+  created_at        DateTime @default(now())
+
+  @@map("subscriptions")
+}
+
+// ===== Taksitler =====
+model Installment {
+  id                String   @id @default(uuid()) @db.Uuid
+  title             String   @db.VarChar(255)
+  total_amount      Float
+  installment_count Int
+  monthly_amount    Float
+  paid_count        Int      @default(0)
+  start_date        DateTime @db.Date
+  category_id       String?  @db.Uuid
+  created_at        DateTime @default(now())
+
+  @@map("installments")
 }

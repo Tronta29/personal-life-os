@@ -9,6 +9,8 @@ import { Modal } from "@/components/ui/modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CategoryBar } from "@/components/finance/CategoryBar";
+import { SubscriptionsTab } from "@/components/finance/SubscriptionsTab";
+import { InstallmentsTab } from "@/components/finance/InstallmentsTab";
 import {
   Plus,
   Loader2,
@@ -21,6 +23,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { formatCurrency, toDateKey } from "@/lib/utils";
+import { PAYMENT_METHODS, type PaymentMethod } from "@/types";
 
 type Category = { id: string; name: string; color: string; monthly_budget_limit: number };
 type Project = { id: string; name: string };
@@ -31,10 +34,14 @@ type Tx = {
   description: string | null;
   client_name: string | null;
   is_paid: boolean;
+  payment_method: PaymentMethod;
   transaction_date: string;
   category: { id: string; name: string; color: string } | null;
   project: { id: string; name: string; color: string } | null;
 };
+
+type Tab = "genel" | "abonelik" | "taksit";
+const PAYMENT_LABEL = Object.fromEntries(PAYMENT_METHODS.map((p) => [p.value, p.label]));
 
 function currentMonth() {
   const d = new Date();
@@ -60,6 +67,7 @@ const EMPTY_FORM = {
   description: "",
   client_name: "",
   is_paid: true,
+  payment_method: "CASH" as PaymentMethod,
   transaction_date: toDateKey(),
 };
 
@@ -72,6 +80,8 @@ export function FinanceView() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [tab, setTab] = useState<Tab>("genel");
+  const [payFilter, setPayFilter] = useState<PaymentMethod | "">("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -139,6 +149,11 @@ export function FinanceView() {
     [txs]
   );
 
+  const visibleTxs = useMemo(
+    () => (payFilter ? txs.filter((t) => t.payment_method === payFilter) : txs),
+    [txs, payFilter]
+  );
+
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!form.amount || Number(form.amount) <= 0) return;
@@ -181,11 +196,39 @@ export function FinanceView() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-2xl font-bold">Finans</h1>
-        <Button onClick={() => setOpen(true)} size="sm">
-          <Plus className="size-4" /> Ekle
-        </Button>
+        {tab === "genel" && (
+          <Button onClick={() => setOpen(true)} size="sm">
+            <Plus className="size-4" /> Ekle
+          </Button>
+        )}
       </div>
 
+      {/* Sekmeler */}
+      <div className="flex gap-2 border-b">
+        {([
+          ["genel", "Genel"],
+          ["abonelik", "Abonelikler"],
+          ["taksit", "Taksitler"],
+        ] as [Tab, string][]).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={
+              tab === key
+                ? "border-b-2 border-primary px-3 py-2 text-sm font-medium text-foreground"
+                : "px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "abonelik" && <SubscriptionsTab />}
+      {tab === "taksit" && <InstallmentsTab />}
+
+      {tab === "genel" && (
+      <>
       {/* Ay seçici */}
       <div className="flex items-center justify-center gap-3">
         <Button variant="outline" size="icon" onClick={() => setMonth(shiftMonth(month, -1))}>
@@ -288,15 +331,27 @@ export function FinanceView() {
 
           {/* İşlem listesi */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="flex-row items-center justify-between pb-2">
               <CardTitle className="text-base">İşlemler</CardTitle>
+              <Select
+                value={payFilter}
+                onChange={(e) => setPayFilter(e.target.value as PaymentMethod | "")}
+                className="h-9 w-auto"
+              >
+                <option value="">Tüm yöntemler</option>
+                {PAYMENT_METHODS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </Select>
             </CardHeader>
             <CardContent>
-              {txs.length === 0 ? (
+              {visibleTxs.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Bu ay için işlem yok.</p>
               ) : (
                 <ul className="divide-y">
-                  {txs.map((t) => (
+                  {visibleTxs.map((t) => (
                     <li key={t.id} className="flex items-center gap-2 py-2.5">
                       <span
                         className="size-2.5 shrink-0 rounded-full"
@@ -307,7 +362,8 @@ export function FinanceView() {
                           {t.description || t.category?.name || "İşlem"}
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {t.category?.name ?? "Kategorisiz"}
+                          {PAYMENT_LABEL[t.payment_method] ?? "Nakit"}
+                          {t.category && ` · ${t.category.name}`}
                           {t.project && ` · ${t.project.name}`} ·{" "}
                           {new Date(t.transaction_date).toLocaleDateString("tr-TR")}
                         </p>
@@ -336,6 +392,8 @@ export function FinanceView() {
             </CardContent>
           </Card>
         </>
+      )}
+      </>
       )}
 
       {/* Ekleme modalı */}
@@ -400,6 +458,22 @@ export function FinanceView() {
                 ))}
               </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="f-pay">Ödeme yöntemi</Label>
+            <Select
+              id="f-pay"
+              value={form.payment_method}
+              onChange={(e) =>
+                setForm({ ...form, payment_method: e.target.value as PaymentMethod })
+              }
+            >
+              {PAYMENT_METHODS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="f-desc">Açıklama</Label>
